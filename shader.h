@@ -17,9 +17,13 @@
 class Shader
 {
 public:
-    GLuint Program;
+    GLuint Program = 0;
     // Constructor generates the shader on the fly
-    Shader(const GLchar* vertexPath, const GLchar* fragmentPath, const GLchar* geometryPath = nullptr)
+    Shader(){}
+    Shader(GLuint program){
+        this->Program = program;
+    }
+public: void init(const GLchar* vertexPath, const GLchar* fragmentPath, const GLchar* geometryPath = nullptr)
     {
         // 1. Retrieve the vertex/fragment source code from filePath
         std::string vertexCode;
@@ -88,7 +92,8 @@ public:
 			checkCompileErrors(geometry, "GEOMETRY");
 		}
         // Shader Program
-        this->Program = glCreateProgram();
+        if(this->Program==0)
+            this->Program = glCreateProgram();
         glAttachShader(this->Program, vertex);
         glAttachShader(this->Program, fragment);
 		if(geometryPath != nullptr)
@@ -102,8 +107,62 @@ public:
 			glDeleteShader(geometry);
 
     }
+
+    void link(){
+        glLinkProgram(this->Program);
+        checkCompileErrors(this->Program, "PROGRAM");
+    }
     // Uses the current shader
     void Use() { glUseProgram(this->Program); }
+
+    void attachShaderSource(GLenum type, const GLchar* shaderPath)
+    {
+        std::string shaderCode;
+        std::ifstream shaderFile;
+        shaderFile.exceptions (std::ifstream::failbit | std::ifstream::badbit);
+        try
+        {
+            // Open files
+            shaderFile.open(shaderPath);
+            std::stringstream shaderStream;
+            // Read file's buffer contents into streams
+            shaderStream << shaderFile.rdbuf();
+            // close file handlers
+            shaderFile.close();
+
+            // Convert stream into string
+            shaderCode = shaderStream.str();
+            // If geometry shader path is present, also load a geometry shader
+        }
+        catch (std::ifstream::failure e)
+        {
+            std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
+        }
+
+//        std::cout<<shaderCode<<std::endl;
+        const GLchar* cShaderCode = shaderCode.c_str();
+        // 2. Compile shaders
+        GLuint shader;
+        GLint success;
+        GLchar infoLog[512];
+        // Vertex Shader
+        shader = glCreateShader(type);
+        glShaderSource(shader, 1, &cShaderCode, NULL);
+        glCompileShader(shader);
+        std::string s;
+        std::stringstream ss;
+        ss<<type;
+        ss>>s;
+        checkCompileErrors(shader, s);
+        // Fragment Shader
+
+        // Shader Program
+        if(this->Program==0)
+            this->Program = glCreateProgram();
+        glAttachShader(this->Program, shader);
+        // Delete the shaders as they're linked into our program now and no longer necessery
+        glDeleteShader(shader);
+    }
 
 private:
     void checkCompileErrors(GLuint shader, std::string type)
